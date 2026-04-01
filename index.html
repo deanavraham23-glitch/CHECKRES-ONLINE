@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>דמקה</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: #fff;
+      padding: 20px;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+      text-shadow: 0 0 20px rgba(100, 200, 255, 0.5);
+      letter-spacing: 4px;
+    }
+
+    #status-bar {
+      font-size: 1.2rem;
+      margin-bottom: 16px;
+      padding: 10px 28px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 30px;
+      border: 1px solid rgba(255,255,255,0.15);
+      min-width: 260px;
+      text-align: center;
+      transition: background 0.3s;
+    }
+
+    #status-bar.red-turn  { background: rgba(220, 60, 60, 0.25); border-color: rgba(220,60,60,0.5); }
+    #status-bar.blue-turn { background: rgba(60, 130, 220, 0.25); border-color: rgba(60,130,220,0.5); }
+    #status-bar.win       { background: rgba(50, 200, 100, 0.3);  border-color: rgba(50,200,100,0.7); font-weight: bold; font-size: 1.4rem; }
+
+    #scores {
+      display: flex;
+      gap: 30px;
+      margin-bottom: 16px;
+      font-size: 1rem;
+    }
+
+    .score-box {
+      padding: 6px 20px;
+      border-radius: 20px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+    .score-box.red  { border-color: rgba(220,80,80,0.5); }
+    .score-box.blue { border-color: rgba(80,140,220,0.5); }
+
+    #board-wrap {
+      padding: 12px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.1);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+
+    #board {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 0;
+      border: 3px solid #4a3728;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .cell {
+      width: 72px;
+      height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: default;
+      position: relative;
+      transition: background 0.15s;
+    }
+
+    .cell.light { background: #f0d9b5; }
+    .cell.dark  { background: #b58863; }
+    .cell.dark:hover { background: #c49a74; }
+
+    .cell.selected { background: #7fc97f !important; }
+    .cell.possible { background: #aee87a !important; cursor: pointer; }
+    .cell.possible::after {
+      content: '';
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      background: rgba(80, 200, 80, 0.45);
+      border: 2px solid rgba(50,180,50,0.7);
+      position: absolute;
+    }
+
+    .piece {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      cursor: pointer;
+      position: relative;
+      transition: transform 0.1s, box-shadow 0.1s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+      user-select: none;
+    }
+
+    .piece:hover { transform: scale(1.08); }
+
+    .piece.red {
+      background: radial-gradient(circle at 35% 35%, #ff6b6b, #c0392b);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.4), inset 0 2px 4px rgba(255,255,255,0.3);
+      border: 3px solid #922b21;
+    }
+
+    .piece.blue {
+      background: radial-gradient(circle at 35% 35%, #74b9ff, #2980b9);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.4), inset 0 2px 4px rgba(255,255,255,0.3);
+      border: 3px solid #1a5276;
+    }
+
+    .piece.king::after {
+      content: '♛';
+      position: absolute;
+      font-size: 1.2rem;
+      color: rgba(255,230,0,0.95);
+      text-shadow: 0 0 4px rgba(0,0,0,0.6);
+    }
+
+    #controls {
+      margin-top: 18px;
+      display: flex;
+      gap: 14px;
+    }
+
+    button {
+      padding: 10px 28px;
+      border: none;
+      border-radius: 25px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: transform 0.1s, box-shadow 0.1s;
+      font-family: inherit;
+    }
+
+    button:hover  { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.3); }
+    button:active { transform: translateY(0); }
+
+    #btn-restart {
+      background: linear-gradient(135deg, #e74c3c, #c0392b);
+      color: #fff;
+    }
+
+    #btn-hint {
+      background: linear-gradient(135deg, #f39c12, #d68910);
+      color: #fff;
+    }
+
+    #overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.65);
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+    #overlay.show { display: flex; }
+
+    #overlay-box {
+      background: linear-gradient(135deg, #1a1a2e, #16213e);
+      border: 2px solid rgba(100,200,255,0.3);
+      border-radius: 20px;
+      padding: 40px 60px;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+    }
+    #overlay-box h2 { font-size: 2rem; margin-bottom: 12px; }
+    #overlay-box p  { font-size: 1.1rem; margin-bottom: 24px; color: #adf; }
+
+    #btn-play-again {
+      background: linear-gradient(135deg, #00b894, #00cec9);
+      color: #fff;
+      font-size: 1.1rem;
+      padding: 12px 36px;
+    }
+
+    @media (max-width: 640px) {
+      .cell { width: 42px; height: 42px; }
+      .piece { width: 34px; height: 34px; font-size: 1rem; }
+      .piece.king::after { font-size: 0.8rem; }
+      h1 { font-size: 1.6rem; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>♟ דמקה</h1>
+
+<div id="scores">
+  <div class="score-box red">🔴 אדום: <span id="score-red">0</span> כלים</div>
+  <div class="score-box blue">🔵 כחול: <span id="score-blue">0</span> כלים</div>
+</div>
+
+<div id="status-bar">תור השחקן האדום</div>
+
+<div id="board-wrap">
+  <div id="board"></div>
+</div>
+
+<div id="controls">
+  <button id="btn-restart">🔄 משחק חדש</button>
+  <button id="btn-hint">💡 רמז</button>
+</div>
+
+<div id="overlay">
+  <div id="overlay-box">
+    <h2 id="overlay-title">🎉 כל הכבוד!</h2>
+    <p id="overlay-msg"></p>
+    <button id="btn-play-again">שחק שוב</button>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  CHECKERS ENGINE
+// ============================================================
+
+const ROWS = 8, COLS = 8;
+const RED = 'red', BLUE = 'blue';
+
+let board = [];
+let currentPlayer = RED;
+let selected = null;       // {row, col}
+let possibleMoves = [];    // [{row, col, captures:[]}]
+let mustCapture = false;
+let chainPiece = null;     // piece locked into multi-jump
+let gameOver = false;
+
+// ---------- init ----------
+function createBoard() {
+  board = [];
+  for (let r = 0; r < ROWS; r++) {
+    board[r] = [];
+    for (let c = 0; c < COLS; c++) {
+      if ((r + c) % 2 === 1) {
+        if (r < 3)       board[r][c] = { color: BLUE, king: false };
+        else if (r > 4)  board[r][c] = { color: RED,  king: false };
+        else             board[r][c] = null;
+      } else {
+        board[r][c] = null;
+      }
+    }
+  }
+}
+
+// ---------- move generation ----------
+function getMoves(r, c, captureOnly = false) {
+  const piece = board[r][c];
+  if (!piece) return [];
+  const dirs = [];
+  if (piece.color === RED  || piece.king) dirs.push(-1);
+  if (piece.color === BLUE || piece.king) dirs.push(+1);
+
+  const moves = [];
+
+  // captures
+  for (const dr of dirs) {
+    for (const dc of [-1, +1]) {
+      const mr = r + dr, mc = c + dc;   // mid cell (enemy)
+      const lr = r + 2*dr, lc = c + 2*dc; // landing
+      if (!inBounds(mr, mc) || !inBounds(lr, lc)) continue;
+      const mid = board[mr][mc];
+      if (mid && mid.color !== piece.color && !board[lr][lc]) {
+        moves.push({ row: lr, col: lc, captures: [{ row: mr, col: mc }] });
+      }
+    }
+  }
+
+  if (captureOnly || moves.length > 0) return moves; // if captures available, only return captures
+
+  // simple moves
+  for (const dr of dirs) {
+    for (const dc of [-1, +1]) {
+      const nr = r + dr, nc = c + dc;
+      if (inBounds(nr, nc) && !board[nr][nc]) {
+        moves.push({ row: nr, col: nc, captures: [] });
+      }
+    }
+  }
+  return moves;
+}
+
+function getAllMoves(player) {
+  const all = [];
+  let hasCapture = false;
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (board[r][c]?.color === player) {
+        const captures = getMoves(r, c, true).filter(m => m.captures.length > 0);
+        if (captures.length) hasCapture = true;
+      }
+    }
+  }
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (board[r][c]?.color === player) {
+        const moves = hasCapture ? getMoves(r, c, true).filter(m => m.captures.length > 0)
+                                 : getMoves(r, c);
+        for (const m of moves) all.push({ from: { row: r, col: c }, move: m });
+      }
+    }
+  }
+  return { moves: all, hasCapture };
+}
+
+function inBounds(r, c) { return r >= 0 && r < ROWS && c >= 0 && c < COLS; }
+
+// ---------- apply move ----------
+function applyMove(fromR, fromC, move) {
+  const piece = board[fromR][fromC];
+  board[move.row][move.col] = piece;
+  board[fromR][fromC] = null;
+
+  for (const cap of move.captures) board[cap.row][cap.col] = null;
+
+  // king promotion
+  if (piece.color === RED  && move.row === 0) piece.king = true;
+  if (piece.color === BLUE && move.row === 7) piece.king = true;
+
+  return piece;
+}
+
+// ---------- UI ----------
+function render() {
+  const boardEl = document.getElementById('board');
+  boardEl.innerHTML = '';
+
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell ' + ((r + c) % 2 === 0 ? 'light' : 'dark');
+      cell.dataset.row = r;
+      cell.dataset.col = c;
+
+      const isSelected = selected && selected.row === r && selected.col === c;
+      const isPossible = possibleMoves.some(m => m.row === r && m.col === c);
+
+      if (isSelected) cell.classList.add('selected');
+      if (isPossible) cell.classList.add('possible');
+
+      const piece = board[r][c];
+      if (piece) {
+        const pd = document.createElement('div');
+        pd.className = 'piece ' + piece.color + (piece.king ? ' king' : '');
+        pd.dataset.row = r;
+        pd.dataset.col = c;
+        pd.addEventListener('click', onPieceClick);
+        cell.appendChild(pd);
+      }
+
+      cell.addEventListener('click', onCellClick);
+      boardEl.appendChild(cell);
+    }
+  }
+
+  updateStatus();
+  updateScores();
+}
+
+function updateStatus() {
+  const el = document.getElementById('status-bar');
+  el.className = currentPlayer === RED ? 'red-turn' : 'blue-turn';
+  el.textContent = currentPlayer === RED ? '🔴 תור השחקן האדום' : '🔵 תור השחקן הכחול';
+}
+
+function updateScores() {
+  let red = 0, blue = 0;
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++) {
+      if (board[r][c]?.color === RED)  red++;
+      if (board[r][c]?.color === BLUE) blue++;
+    }
+  document.getElementById('score-red').textContent  = red;
+  document.getElementById('score-blue').textContent = blue;
+}
+
+// ---------- click handlers ----------
+function onPieceClick(e) {
+  e.stopPropagation();
+  const r = +e.currentTarget.dataset.row;
+  const c = +e.currentTarget.dataset.col;
+  if (gameOver) return;
+
+  // if clicking a possible move cell that has a piece (shouldn't happen in normal checkers but safety)
+  if (possibleMoves.some(m => m.row === r && m.col === c)) {
+    onCellClick(e);
+    return;
+  }
+
+  const piece = board[r][c];
+  if (!piece || piece.color !== currentPlayer) return;
+  if (chainPiece && !(chainPiece.row === r && chainPiece.col === c)) return;
+
+  selected = { row: r, col: c };
+  const { hasCapture } = getAllMoves(currentPlayer);
+  mustCapture = hasCapture;
+
+  let moves = getMoves(r, c);
+  if (mustCapture) moves = moves.filter(m => m.captures.length > 0);
+  possibleMoves = moves;
+
+  render();
+}
+
+function onCellClick(e) {
+  if (gameOver) return;
+  const r = +e.currentTarget.dataset.row;
+  const c = +e.currentTarget.dataset.col;
+
+  const move = possibleMoves.find(m => m.row === r && m.col === c);
+  if (!move) {
+    // deselect if clicking elsewhere
+    if (!board[r][c] || board[r][c].color !== currentPlayer) {
+      selected = null;
+      possibleMoves = [];
+      chainPiece = null;
+      render();
+    }
+    return;
+  }
+
+  // execute move
+  const fromR = selected.row, fromC = selected.col;
+  applyMove(fromR, fromC, move);
+
+  // check multi-jump
+  if (move.captures.length > 0) {
+    const furtherCaptures = getMoves(move.row, move.col, true).filter(m => m.captures.length > 0);
+    if (furtherCaptures.length > 0) {
+      selected = { row: move.row, col: move.col };
+      possibleMoves = furtherCaptures;
+      chainPiece = { row: move.row, col: move.col };
+      render();
+      return;
+    }
+  }
+
+  // end turn
+  chainPiece = null;
+  selected = null;
+  possibleMoves = [];
+  currentPlayer = currentPlayer === RED ? BLUE : RED;
+
+  const { moves: nextMoves } = getAllMoves(currentPlayer);
+  if (nextMoves.length === 0) {
+    endGame(currentPlayer === RED ? BLUE : RED);
+    return;
+  }
+
+  render();
+}
+
+function endGame(winner) {
+  gameOver = true;
+  const name = winner === RED ? '🔴 האדום' : '🔵 הכחול';
+  document.getElementById('overlay-title').textContent = '🏆 ' + name + ' ניצח!';
+  document.getElementById('overlay-msg').textContent = 'לחץ כדי לשחק שוב';
+  document.getElementById('overlay').classList.add('show');
+
+  const sb = document.getElementById('status-bar');
+  sb.className = 'win';
+  sb.textContent = name + ' ניצח!';
+}
+
+function showHint() {
+  if (gameOver) return;
+  const { moves } = getAllMoves(currentPlayer);
+  if (!moves.length) return;
+  const best = moves[Math.floor(Math.random() * moves.length)];
+  selected = { row: best.from.row, col: best.from.col };
+  let allMoves = getMoves(best.from.row, best.from.col);
+  const { hasCapture } = getAllMoves(currentPlayer);
+  if (hasCapture) allMoves = allMoves.filter(m => m.captures.length > 0);
+  possibleMoves = allMoves;
+  render();
+}
+
+function restart() {
+  createBoard();
+  currentPlayer = RED;
+  selected = null;
+  possibleMoves = [];
+  mustCapture = false;
+  chainPiece = null;
+  gameOver = false;
+  document.getElementById('overlay').classList.remove('show');
+  render();
+}
+
+// ---------- boot ----------
+document.getElementById('btn-restart').addEventListener('click', restart);
+document.getElementById('btn-hint').addEventListener('click', showHint);
+document.getElementById('btn-play-again').addEventListener('click', restart);
+
+restart();
+</script>
+</body>
+</html>
